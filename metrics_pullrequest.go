@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
+	prometheusCommon "github.com/webdevops/go-common/prometheus"
+
 	devopsClient "github.com/webdevops/azure-devops-exporter/azure-devops-client"
-	prometheusCommon "github.com/webdevops/go-prometheus-common"
 )
 
 type MetricsCollectorPullRequest struct {
@@ -80,6 +82,10 @@ func (m *MetricsCollectorPullRequest) Reset() {
 
 func (m *MetricsCollectorPullRequest) Collect(ctx context.Context, logger *log.Entry, callback chan<- func(), project devopsClient.Project) {
 	for _, repository := range project.RepositoryList.List {
+		if repository.Disabled() {
+			continue
+		}
+
 		contextLogger := logger.WithField("repository", repository.Name)
 		m.collectPullRequests(ctx, contextLogger, callback, project, repository)
 	}

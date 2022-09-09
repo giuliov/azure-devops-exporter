@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"sync"
+
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
+	prometheusCommon "github.com/webdevops/go-common/prometheus"
+
 	devopsClient "github.com/webdevops/azure-devops-exporter/azure-devops-client"
-	prometheusCommon "github.com/webdevops/go-prometheus-common"
-	"sync"
 )
 
 type MetricsCollectorRepository struct {
@@ -83,6 +85,10 @@ func (m *MetricsCollectorRepository) Collect(ctx context.Context, logger *log.En
 	wg := sync.WaitGroup{}
 
 	for _, repository := range project.RepositoryList.List {
+		if repository.Disabled() {
+			continue
+		}
+
 		wg.Add(1)
 		go func(ctx context.Context, callback chan<- func(), project devopsClient.Project, repository devopsClient.Repository) {
 			defer wg.Done()

@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
+	prometheusCommon "github.com/webdevops/go-common/prometheus"
+
 	devopsClient "github.com/webdevops/azure-devops-exporter/azure-devops-client"
-	prometheusCommon "github.com/webdevops/go-prometheus-common"
 )
 
 type MetricsCollectorAgentPool struct {
@@ -131,14 +133,14 @@ func (m *MetricsCollectorAgentPool) Reset() {
 }
 
 func (m *MetricsCollectorAgentPool) Collect(ctx context.Context, logger *log.Entry, callback chan<- func()) {
-	for _, project := range m.CollectorReference.azureDevOpsProjects.List {
+	for _, project := range m.CollectorReference.GetAzureProjects() {
 		contextLogger := logger.WithFields(log.Fields{
 			"project": project.Name,
 		})
 		m.collectAgentInfo(ctx, contextLogger, callback, project)
 	}
 
-	for _, agentPoolId := range m.CollectorReference.AgentPoolIdList {
+	for _, agentPoolId := range AzureDevopsServiceDiscovery.AgentPoolList() {
 		contextLogger := logger.WithFields(log.Fields{
 			"agentPoolId": agentPoolId,
 		})

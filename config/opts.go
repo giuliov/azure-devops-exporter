@@ -2,8 +2,9 @@ package config
 
 import (
 	"encoding/json"
-	log "github.com/sirupsen/logrus"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type (
@@ -44,7 +45,7 @@ type (
 			ApiVersion      string  `long:"azuredevops.apiversion"              env:"AZURE_DEVOPS_APIVERSION"        description:"Azure DevOps API version"  default:"5.1"`
 
 			// agentpool
-			AgentPoolIdList []int64 `long:"azuredevops.agentpool"  env:"AZURE_DEVOPS_AGENTPOOL"  env-delim:" "   description:"Enable scrape metrics for agent pool (IDs)"`
+			AgentPoolIdList *[]int64 `long:"azuredevops.agentpool"  env:"AZURE_DEVOPS_AGENTPOOL"  env-delim:" "   description:"Enable scrape metrics for agent pool (IDs)"`
 
 			// ignore settings
 			FilterProjects    []string `long:"whitelist.project"    env:"AZURE_DEVOPS_FILTER_PROJECT"    env-delim:" "   description:"Filter projects (UUIDs)"`
@@ -52,6 +53,11 @@ type (
 
 			// query settings
 			QueriesWithProjects []string `long:"list.query"    env:"AZURE_DEVOPS_QUERIES"    env-delim:" "   description:"Pairs of query and project UUIDs in the form: '<queryId>@<projectId>'"`
+		}
+
+		// cache settings
+		Cache struct {
+			Expiry time.Duration `long:"cache.expiry"  env:"CACHE_EXPIRY"  description:"Internal cache expiry time (time.duration)"  default:"30m"`
 		}
 
 		Request struct {

@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
+	"sync"
+
 	log "github.com/sirupsen/logrus"
 	devopsClient "github.com/webdevops/azure-devops-exporter/azure-devops-client"
-	"sync"
 )
 
 type CollectorProject struct {
@@ -40,7 +41,7 @@ func (c *CollectorProject) Collect() {
 
 	c.collectionStart()
 
-	for _, project := range c.GetAzureProjects().List {
+	for _, project := range c.GetAzureProjects() {
 		wg.Add(1)
 		go func(ctx context.Context, callback chan<- func(), project devopsClient.Project) {
 			defer wg.Done()

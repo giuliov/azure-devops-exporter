@@ -3,8 +3,13 @@ package AzureDevopsClient
 import (
 	"errors"
 	"fmt"
-	"gopkg.in/resty.v1"
+	"net/url"
+	"strconv"
+	"strings"
 	"sync/atomic"
+
+	resty "github.com/go-resty/resty/v2"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type AzureDevopsClient struct {
@@ -34,6 +39,10 @@ type AzureDevopsClient struct {
 	LimitDeploymentPerDefinition      int64
 	LimitReleaseDefinitionsPerProject int64
 	LimitReleasesPerProject           int64
+
+	prometheus struct {
+		apiRequest *prometheus.HistogramVec
+	}
 }
 
 func NewAzureDevopsClient() *AzureDevopsClient {
@@ -56,6 +65,17 @@ func (c *AzureDevopsClient) Init() {
 	c.LimitDeploymentPerDefinition = 100
 	c.LimitReleaseDefinitionsPerProject = 100
 	c.LimitReleasesPerProject = 100
+
+	c.prometheus.apiRequest = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "azure_devops_api_request",
+			Help:    "AzureDevOps API requests",
+			Buckets: []float64{.05, .1, .25, .5, 1, 2.5, 5, 10, 30},
+		},
+		[]string{"endpoint", "organization", "method", "statusCode"},
+	)
+
+	prometheus.MustRegister(c.prometheus.apiRequest)
 }
 
 func (c *AzureDevopsClient) SetConcurrency(v int64) {
@@ -96,9 +116,9 @@ func (c *AzureDevopsClient) rest() *resty.Client {
 	if c.restClient == nil {
 		c.restClient = resty.New()
 		if c.HostUrl != nil {
-			c.restClient.SetHostURL(*c.HostUrl + "/" + *c.organization + "/")
+			c.restClient.SetBaseURL(*c.HostUrl + "/" + *c.organization + "/")
 		} else {
-			c.restClient.SetHostURL(fmt.Sprintf("https://dev.azure.com/%v/", *c.organization))
+			c.restClient.SetBaseURL(fmt.Sprintf("https://dev.azure.com/%v/", *c.organization))
 		}
 		c.restClient.SetHeader("Accept", "application/json")
 		c.restClient.SetBasicAuth("", *c.accessToken)
@@ -115,9 +135,9 @@ func (c *AzureDevopsClient) restVsrm() *resty.Client {
 	if c.restClientVsrm == nil {
 		c.restClientVsrm = resty.New()
 		if c.HostUrl != nil {
-			c.restClientVsrm.SetHostURL(*c.HostUrl + "/" + *c.organization + "/")
+			c.restClientVsrm.SetBaseURL(*c.HostUrl + "/" + *c.organization + "/")
 		} else {
-			c.restClientVsrm.SetHostURL(fmt.Sprintf("https://vsrm.dev.azure.com/%v/", *c.organization))
+			c.restClientVsrm.SetBaseURL(fmt.Sprintf("https://vsrm.dev.azure.com/%v/", *c.organization))
 		}
 		c.restClientVsrm.SetHeader("Accept", "application/json")
 		c.restClientVsrm.SetBasicAuth("", *c.accessToken)
@@ -143,6 +163,13 @@ func (c *AzureDevopsClient) restOnBeforeRequest(client *resty.Client, request *r
 }
 
 func (c *AzureDevopsClient) restOnAfterResponse(client *resty.Client, response *resty.Response) (err error) {
+	requestUrl, _ := url.Parse(response.Request.URL)
+	c.prometheus.apiRequest.With(prometheus.Labels{
+		"endpoint":     requestUrl.Hostname(),
+		"organization": *c.organization,
+		"method":       strings.ToLower(response.Request.Method),
+		"statusCode":   strconv.FormatInt(int64(response.StatusCode()), 10),
+	}).Observe(response.Time().Seconds())
 	return
 }
 
